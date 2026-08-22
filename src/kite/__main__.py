@@ -2,9 +2,10 @@ from dotenv import load_dotenv
 
 from .agent import Agent
 from .gemini import Gemini
-from .tools.read_file import ReadFile
 from .tools.registry import ToolRegistry
+from .tools.read_file import ReadFile
 from .tools.list_files import ListFiles
+from .tools.search import Search
 
 
 def main():
@@ -15,6 +16,7 @@ def main():
     tools = ToolRegistry([
         ReadFile(),
         ListFiles(),
+        Search(),
     ])
 
     agent = Agent(model, tools)
