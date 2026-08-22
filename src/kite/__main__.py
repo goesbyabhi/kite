@@ -4,15 +4,17 @@ from .agent import Agent
 from .gemini import Gemini
 from .tools.read_file import ReadFile
 from .tools.registry import ToolRegistry
+from .tools.list_files import ListFiles
 
 
 def main():
     load_dotenv()
 
-    model = Gemini("gemini-3.6-flash")
+    model = Gemini("gemini-3.5-flash-lite")
 
     tools = ToolRegistry([
         ReadFile(),
+        ListFiles(),
     ])
 
     agent = Agent(model, tools)

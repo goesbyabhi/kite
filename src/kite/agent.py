@@ -12,7 +12,7 @@ class Agent:
         self.model = model
         self.tools = tools
 
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, max_steps: int = 10,) -> str:
 
         messages = [
             Message(
@@ -21,8 +21,7 @@ class Agent:
             )
         ]
 
-        while True:
-
+        for _ in range(max_steps):
             response = self.model.complete(
                 messages,
                 tools=self.tools.definitions(),
@@ -61,3 +60,5 @@ class Agent:
                         tool_name=call.name,
                     )
                 )
+
+        raise RuntimeError(f"Agent exceeded maximum steps ({max_steps})")

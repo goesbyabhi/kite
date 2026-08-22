@@ -13,6 +13,10 @@ class Tool(ABC):
     def description(self) -> str:
         raise NotImplementedError
 
+    @property
+    def requires_confirmation(self) -> bool:
+        return False
+
     @abstractmethod
     def execute(self, arguments: dict[str, Any]) -> str:
         raise NotImplementedError

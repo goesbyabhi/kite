@@ -3,6 +3,12 @@ from typing import Any
 
 from .base import Tool
 
+SENSITIVE_FILES = {
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".env.development",
+}
 
 class ReadFile(Tool):
     @property
@@ -35,6 +41,11 @@ class ReadFile(Tool):
         if not path.is_file():
             raise FileNotFoundError(
                 f"File not found: {path}"
+            )
+
+        if path.name in SENSITIVE_FILES:
+            raise PermissionError(
+                f"Access denied: {path.name} is a sensitive file."
             )
 
         return path.read_text(encoding="utf-8")
