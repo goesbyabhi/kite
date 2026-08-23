@@ -19,4 +19,5 @@ packages = ["src/kite"]
 [dependency-groups]
 dev = [
     "python-lsp-server>=1.15.0",
+    "ruff>=0.16.4",
 ]

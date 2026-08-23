@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from ..workspace import Workspace
 from .base import Tool
-
 
 IGNORED_DIRECTORIES = {
     ".git",
@@ -23,6 +23,9 @@ IGNORED_FILES = {
 
 
 class Search(Tool):
+    def __init__(self, workspace: Workspace):
+        self.workspace = workspace
+
     @property
     def name(self) -> str:
         return "search"
@@ -48,8 +51,7 @@ class Search(Tool):
                     "path": {
                         "type": "string",
                         "description": (
-                            "Directory or file to search. "
-                            "Use '.' for the project."
+                            "Directory or file to search. Use '.' for the project."
                         ),
                     },
                 },
@@ -59,12 +61,10 @@ class Search(Tool):
 
     def execute(self, arguments: dict[str, Any]) -> str:
         query = arguments["query"]
-        path = Path(arguments["path"])
+        path = self.workspace.resolve(arguments["path"])
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"Path not found: {path}"
-            )
+            raise FileNotFoundError(f"Path not found: {path}")
 
         results: list[str] = []
 
@@ -93,7 +93,6 @@ class Search(Tool):
         results: list[str],
     ) -> None:
         for current, directories, files in root.walk():
-
             directories[:] = [
                 directory
                 for directory in directories
@@ -117,9 +116,7 @@ class Search(Tool):
         results: list[str],
     ) -> None:
         try:
-            text = path.read_text(
-                encoding="utf-8"
-            )
+            text = path.read_text(encoding="utf-8")
         except (
             UnicodeDecodeError,
             PermissionError,
@@ -132,6 +129,4 @@ class Search(Tool):
             start=1,
         ):
             if query.lower() in line.lower():
-                results.append(
-                    f"{path}:{line_number}: {line.strip()}"
-                )
+                results.append(f"{path}:{line_number}: {line.strip()}")

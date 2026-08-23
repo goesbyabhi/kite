@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from ..workspace import Workspace
 from .base import Tool
-
 
 IGNORED_DIRECTORIES = {
     ".git",
@@ -21,7 +21,11 @@ IGNORED_FILES = {
     ".env.development",
 }
 
+
 class ListFiles(Tool):
+    def __init__(self, workspace: Workspace):
+        self.workspace = workspace
+
     @property
     def name(self) -> str:
         return "list_files"
@@ -43,8 +47,7 @@ class ListFiles(Tool):
                     "path": {
                         "type": "string",
                         "description": (
-                            "Directory to inspect. "
-                            "Use '.' for the current project."
+                            "Directory to inspect. Use '.' for the current project."
                         ),
                     }
                 },
@@ -53,12 +56,10 @@ class ListFiles(Tool):
         }
 
     def execute(self, arguments: dict[str, Any]) -> str:
-        path = Path(arguments["path"])
+        path = self.workspace.resolve(arguments["path"])
 
         if not path.is_dir():
-            raise NotADirectoryError(
-                f"Not a directory: {path}"
-            )
+            raise NotADirectoryError(f"Not a directory: {path}")
 
         lines = []
 

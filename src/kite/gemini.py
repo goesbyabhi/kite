@@ -16,8 +16,7 @@ class Gemini(Model):
 
         if not api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not configured. "
-                "Add it to your .env file."
+                "GEMINI_API_KEY is not configured. Add it to your .env file."
             )
 
         self.api_key = api_key
@@ -26,6 +25,7 @@ class Gemini(Model):
         self,
         messages: list[Message],
         tools: list[dict],
+        system: str | None = None,
     ) -> Response:
 
         url = (
@@ -33,26 +33,50 @@ class Gemini(Model):
             f"v1beta/models/{self.model}:generateContent"
         )
 
+        payload = {
+            "contents": self._build_contents(messages),
+            **self._build_tools(tools),
+        }
+
+        if system:
+            payload["systemInstruction"] = {
+                "parts": [
+                    {
+                        "text": system,
+                    }
+                ]
+            }
+
         response = httpx.post(
             url,
             headers={
                 "x-goog-api-key": self.api_key,
                 "Content-Type": "application/json",
             },
-            json={
-                "contents": self._build_contents(messages),
-                **self._build_tools(tools),
-            },
+            json=payload,
             timeout=60,
         )
 
         if response.is_error:
             raise RuntimeError(
-                f"Gemini API Error ({response.status_code}): "
-                f"{response.text}"
+                f"Gemini API Error ({response.status_code}): {response.text}"
             )
 
-        return self._parse_response(response.json())
+        data = response.json()
+
+        # print(
+        #     "[gemini]",
+        #     {
+        #         "parts": len(
+        #             data["candidates"][0]["content"]["parts"]
+        #         ),
+        #         "finish_reason": data["candidates"][0].get(
+        #             "finishReason"
+        #         ),
+        #     },
+        # )
+
+        return self._parse_response(data)
 
     def _build_contents(
         self,
@@ -62,44 +86,44 @@ class Gemini(Model):
         contents = []
 
         for message in messages:
-
             if message.role == "user":
-                contents.append({
-                    "role": "user",
-                    "parts": [
-                        {"text": message.content}
-                    ],
-                })
+                contents.append(
+                    {
+                        "role": "user",
+                        "parts": [{"text": message.content}],
+                    }
+                )
 
             elif message.role == "assistant":
                 parts = []
 
                 if message.content:
-                    parts.append({
-                        "text": message.content
-                    })
+                    parts.append({"text": message.content})
 
                 if message.tool_calls:
                     for call in message.tool_calls:
                         part = {
-                                 "functionCall": {
-                                     "name": call.name,
-                                     "args": call.arguments,
-                             }
-                         }
+                            "functionCall": {
+                                "name": call.name,
+                                "args": call.arguments,
+                            }
+                        }
 
                         if call.thought_signature:
-                             part["thoughtSignature"] = call.thought_signature
+                            part["thoughtSignature"] = call.thought_signature
 
                         parts.append(part)
 
-                contents.append({
-                    "role": "model",
-                    "parts": parts,
-                })
+                contents.append(
+                    {
+                        "role": "model",
+                        "parts": parts,
+                    }
+                )
 
             elif message.role == "tool":
-                contents.append({
+                contents.append(
+                    {
                         "role": "user",
                         "parts": [
                             {
@@ -111,7 +135,8 @@ class Gemini(Model):
                                 }
                             }
                         ],
-                    })
+                    }
+                )
 
         return contents
 
@@ -123,29 +148,19 @@ class Gemini(Model):
         if not tools:
             return {}
 
-        return {
-            "tools": [
-                {
-                    "functionDeclarations": tools
-                }
-            ]
-        }
+        return {"tools": [{"functionDeclarations": tools}]}
 
     def _parse_response(
         self,
         data: dict,
     ) -> Response:
 
-        parts = (
-            data["candidates"][0]
-            ["content"]["parts"]
-        )
+        parts = data["candidates"][0]["content"]["parts"]
 
         text_parts = []
         tool_calls = []
 
         for part in parts:
-
             if "text" in part:
                 text_parts.append(part["text"])
 
@@ -160,23 +175,11 @@ class Gemini(Model):
                             "args",
                             {},
                         ),
-                        thought_signature=part.get(
-                            "thoughtSignature"
-                        ),
+                        thought_signature=part.get("thoughtSignature"),
                     )
                 )
 
         return Response(
             text="\n".join(text_parts) or None,
             tool_calls=tool_calls or None,
-        )
-
-    def _response_message(
-        self,
-        response: Response,
-    ) -> Message:
-
-        return Message(
-            role="assistant",
-            content=response.text
         )

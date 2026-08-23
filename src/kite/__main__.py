@@ -1,23 +1,32 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 from .agent import Agent
 from .gemini import Gemini
-from .tools.registry import ToolRegistry
-from .tools.read_file import ReadFile
 from .tools.list_files import ListFiles
+from .tools.read_file import ReadFile
+from .tools.registry import ToolRegistry
 from .tools.search import Search
+from .tools.shell import Shell
+from .workspace import Workspace
 
 
 def main():
     load_dotenv()
 
+    workspace = Workspace(Path.cwd())
+
     model = Gemini("gemini-3.5-flash-lite")
 
-    tools = ToolRegistry([
-        ReadFile(),
-        ListFiles(),
-        Search(),
-    ])
+    tools = ToolRegistry(
+        [
+            ReadFile(workspace),
+            ListFiles(workspace),
+            Search(workspace),
+            Shell(workspace),
+        ]
+    )
 
     agent = Agent(model, tools)
 
@@ -25,8 +34,9 @@ def main():
 
     while True:
         try:
+            print()
             prompt = input("> ")
-        except (EOFError, KeyboardInterrupt):
+        except EOFError, KeyboardInterrupt:
             print()
             break
 
@@ -40,7 +50,7 @@ def main():
             response = agent.run(prompt)
             print(response)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"error: {e}")
 
 
