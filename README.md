@@ -1,6 +1,6 @@
 # Kite 🪁
 
-A lightweight Python coding agent powered by Google Gemini.
+A lightweight Unix-like Python coding agent powered by Google Gemini. Inspired by [fx by Vercel](https://github.com/vercel-labs/fx)
 
 ## Features
 
