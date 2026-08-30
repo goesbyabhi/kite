@@ -18,6 +18,7 @@ packages = ["src/kite"]
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
     "python-lsp-server>=1.15.0",
     "ruff>=0.16.4",
 ]

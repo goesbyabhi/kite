@@ -1,4 +1,3 @@
-import json
 
 from .messages import Message
 from .models import Model
@@ -40,6 +39,7 @@ class Agent:
     ):
         self.model = model
         self.tools = tools
+        self.messages: list[Message] = []
 
     def run(
         self,
@@ -47,24 +47,21 @@ class Agent:
         max_steps: int = 10,
     ) -> str:
 
-        messages = [
+        self.messages.append(
             Message(
                 role="user",
                 content=prompt,
             )
-        ]
-
-        executed_tools: set[tuple[str, str]] = set()
+        )
 
         for _ in range(max_steps):
             response = self.model.complete(
-                messages,
+                self.messages,
                 tools=self.tools.definitions(),
                 system=SYSTEM_PROMPT,
             )
 
-            # Keep the model response in the conversation.
-            messages.append(
+            self.messages.append(
                 Message(
                     role="assistant",
                     content=response.text,
@@ -72,39 +69,11 @@ class Agent:
                 )
             )
 
-            # No tool call = we're done.
             if not response.tool_calls:
                 return response.text or ""
 
-            # Execute every requested tool.
             for call in response.tool_calls:
                 tool = self.tools.get(call.name)
-
-                tool_key = (
-                    call.name,
-                    json.dumps(
-                        call.arguments,
-                        sort_keys=True,
-                    ),
-                )
-
-                if tool_key in executed_tools:
-                    result = (
-                        "This exact tool call was already executed successfully "
-                        "during this task. Do not repeat it. "
-                        "Continue from the existing result."
-                    )
-
-                    messages.append(
-                        Message(
-                            role="tool",
-                            content=result,
-                            tool_call_id=call.id,
-                            tool_name=call.name,
-                        )
-                    )
-
-                    continue
 
                 if tool.requires_confirmation:
                     answer = input(
@@ -119,12 +88,11 @@ class Agent:
                         call.name,
                         call.arguments,
                     )
-                    executed_tools.add(tool_key)
 
                 except Exception as e:  # noqa: BLE001
                     result = f"Tool error: {e}"
 
-                messages.append(
+                self.messages.append(
                     Message(
                         role="tool",
                         content=result,

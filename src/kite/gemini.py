@@ -1,4 +1,6 @@
+import json
 import os
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -157,9 +159,7 @@ class Gemini(Model):
         candidates = data.get("candidates", [])
 
         if not candidates:
-            raise RuntimeError(
-                f"Gemini returned no candidates: {data}"
-            )
+            raise RuntimeError(f"Gemini returned no candidates: {data}")
 
         candidate = candidates[0]
         content = candidate.get("content")
@@ -174,8 +174,7 @@ class Gemini(Model):
                 return Response()
 
             raise RuntimeError(
-                "Gemini returned no response content "
-                f"(finish reason: {finish_reason})."
+                f"Gemini returned no response content (finish reason: {finish_reason})."
             )
 
         parts = content.get("parts", [])
@@ -197,9 +196,7 @@ class Gemini(Model):
                         id=function.get("id", ""),
                         name=function["name"],
                         arguments=function.get("args", {}),
-                        thought_signature=part.get(
-                            "thoughtSignature"
-                        ),
+                        thought_signature=part.get("thoughtSignature"),
                     )
                 )
 
@@ -207,3 +204,52 @@ class Gemini(Model):
             text="\n".join(text_parts) or None,
             tool_calls=tool_calls or None,
         )
+
+    def stream(
+        self,
+        messages: list[Message],
+        tools: list[dict],
+        system: str | None = None,
+    ) -> Iterator[str]:
+        url = (
+            "https://generativelanguage.googleapis.com/"
+            f"v1beta/models/{self.model}:streamGenerateContent"
+        )
+
+        payload = {
+            "contents": self._build_contents(messages),
+            **self._build_tools(tools),
+        }
+
+        if system:
+            payload["systemInstruction"] = {"parts": [{"text": system}]}
+
+        with httpx.stream(
+            "POST",
+            url,
+            headers={
+                "x-goog-api-key": self.api_key,
+                "Content-Type": "application/json",
+            },
+            params={"alt": "sse"},
+            json=payload,
+            timeout=60,
+        ) as response:
+            if response.is_error:
+                raise RuntimeError(
+                    f"Gemini API Error ({response.status_code}): {response.text}"
+                )
+
+            for line in response.iter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+
+                data = json.loads(line[6:])
+
+                for part in (
+                    data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                ):
+                    text = part.get("text")
+
+                    if text:
+                        yield text

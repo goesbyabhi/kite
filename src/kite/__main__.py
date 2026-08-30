@@ -4,13 +4,8 @@ from dotenv import load_dotenv
 
 from .agent import Agent
 from .gemini import Gemini
-from .tools.edit_file import EditFile
-from .tools.list_files import ListFiles
-from .tools.read_file import ReadFile
+from .tools import default_tools
 from .tools.registry import ToolRegistry
-from .tools.search import Search
-from .tools.shell import Shell
-from .tools.write_file import WriteFile
 from .workspace import Workspace
 
 
@@ -21,16 +16,7 @@ def main():
 
     model = Gemini("gemini-3.5-flash-lite")
 
-    tools = ToolRegistry(
-        [
-            ReadFile(workspace),
-            ListFiles(workspace),
-            Search(workspace),
-            Shell(workspace),
-            WriteFile(workspace),
-            EditFile(workspace),
-        ]
-    )
+    tools = ToolRegistry(default_tools(workspace))
 
     agent = Agent(model, tools)
 

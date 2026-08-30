@@ -8,8 +8,9 @@ MAX_OUTPUT = 20_000
 
 
 class Shell(Tool):
-    def __init__(self, workspace: Workspace):
+    def __init__(self, workspace: Workspace, timeout: int = 30):
         self.workspace = workspace
+        self.timeout = timeout
 
     @property
     def name(self) -> str:
@@ -68,7 +69,7 @@ class Shell(Tool):
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=30,
+                timeout=self.timeout,
                 check=False,
             )
         except subprocess.TimeoutExpired:
@@ -77,11 +78,7 @@ class Shell(Tool):
         stdout = self._truncate(result.stdout)
         stderr = self._truncate(result.stderr)
 
-        return (
-            f"Exit code: {result.returncode}\n"
-            f"stdout:\n{stdout}\n"
-            f"stderr:\n{stderr}"
-        )
+        return f"Exit code: {result.returncode}\nstdout:\n{stdout}\nstderr:\n{stderr}"
 
     @staticmethod
     def _truncate(output: str) -> str:
@@ -93,7 +90,6 @@ class Shell(Tool):
         omitted = len(output) - MAX_OUTPUT
 
         return (
-            output[:MAX_OUTPUT]
-            + "\n\n"
+            output[:MAX_OUTPUT] + "\n\n"
             f"[output truncated: {omitted} characters omitted]"
         )
