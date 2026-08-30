@@ -17,6 +17,12 @@ class Tool(ABC):
     def requires_confirmation(self) -> bool:
         return False
 
+    def confirmation_message(
+        self,
+        arguments: dict[str, Any],
+    ) -> str:
+        return f"Kite wants to use {self.name}."
+
     @abstractmethod
     def execute(self, arguments: dict[str, Any]) -> str:
         raise NotImplementedError

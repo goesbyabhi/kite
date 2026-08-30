@@ -4,6 +4,8 @@ from typing import Any
 from ..workspace import Workspace
 from .base import Tool
 
+MAX_OUTPUT = 20_000
+
 
 class Shell(Tool):
     def __init__(self, workspace: Workspace):
@@ -17,13 +19,21 @@ class Shell(Tool):
     def description(self) -> str:
         return (
             "Execute a PowerShell command in the project workspace. "
-            "Use this for running tests, linters, builds, and other "
-            "project commands."
+            "Use this for running tests, linters, builds, programs, "
+            "and other project commands. "
+            "A command with exit code 0 succeeded, even if stdout is empty. "
+            "Do not repeat a successful command."
         )
 
     @property
     def requires_confirmation(self) -> bool:
         return True
+
+    def confirmation_message(
+        self,
+        arguments: dict[str, Any],
+    ) -> str:
+        return f"Kite wants to execute:\n  {arguments['command']}"
 
     def schema(self) -> dict:
         return {
@@ -34,7 +44,7 @@ class Shell(Tool):
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": ("PowerShell command to execute."),
+                        "description": "PowerShell command to execute.",
                     }
                 },
                 "required": ["command"],
@@ -56,20 +66,34 @@ class Shell(Tool):
                 cwd=self.workspace.root,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=30,
                 check=False,
             )
         except subprocess.TimeoutExpired:
             return "Command timed out after 30 seconds."
 
-        output = []
+        stdout = self._truncate(result.stdout)
+        stderr = self._truncate(result.stderr)
 
-        if result.stdout:
-            output.append(result.stdout.rstrip())
+        return (
+            f"Exit code: {result.returncode}\n"
+            f"stdout:\n{stdout}\n"
+            f"stderr:\n{stderr}"
+        )
 
-        if result.stderr:
-            output.append(result.stderr.rstrip())
+    @staticmethod
+    def _truncate(output: str) -> str:
+        output = output.rstrip()
 
-        output.append(f"Process exited with code {result.returncode}.")
+        if len(output) <= MAX_OUTPUT:
+            return output
 
-        return "\n".join(output)
+        omitted = len(output) - MAX_OUTPUT
+
+        return (
+            output[:MAX_OUTPUT]
+            + "\n\n"
+            f"[output truncated: {omitted} characters omitted]"
+        )

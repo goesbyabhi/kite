@@ -152,30 +152,54 @@ class Gemini(Model):
 
     def _parse_response(
         self,
-        data: dict,
+        data: dict[str, Any],
     ) -> Response:
+        candidates = data.get("candidates", [])
 
-        parts = data["candidates"][0]["content"]["parts"]
+        if not candidates:
+            raise RuntimeError(
+                f"Gemini returned no candidates: {data}"
+            )
 
-        text_parts = []
-        tool_calls = []
+        candidate = candidates[0]
+        content = candidate.get("content")
+
+        if not content:
+            finish_reason = candidate.get(
+                "finishReason",
+                "UNKNOWN",
+            )
+
+            if finish_reason == "STOP":
+                return Response()
+
+            raise RuntimeError(
+                "Gemini returned no response content "
+                f"(finish reason: {finish_reason})."
+            )
+
+        parts = content.get("parts", [])
+
+        text_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
 
         for part in parts:
-            if "text" in part:
-                text_parts.append(part["text"])
+            text = part.get("text")
 
-            elif "functionCall" in part:
-                function = part["functionCall"]
+            if text:
+                text_parts.append(text)
 
+            function = part.get("functionCall")
+
+            if function:
                 tool_calls.append(
                     ToolCall(
                         id=function.get("id", ""),
                         name=function["name"],
-                        arguments=function.get(
-                            "args",
-                            {},
+                        arguments=function.get("args", {}),
+                        thought_signature=part.get(
+                            "thoughtSignature"
                         ),
-                        thought_signature=part.get("thoughtSignature"),
                     )
                 )
 
